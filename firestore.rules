@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Leads collection rules
+    match /leads/{leadId} {
+      // Anyone can read basic lead info and create leads
+      allow read: if true;
+      allow create: if true;
+      
+      // Only the lead owner or purchaser can update
+      allow update: if isAuthenticated() && 
+        (isOwner(resource.data.userId) || 
+         isOwner(resource.data.purchasedBy));
+    }
+    
+    // Users collection rules
+    match /users/{userId} {
+      // Users can read and write their own profile
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // Payments collection rules
+    match /payments/{paymentId} {
+      // Users can read their own payments
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Allow creation of new payments
+      allow create: if isAuthenticated();
+      
+      // Only allow updates by the payment owner
+      allow update: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+  }
+}
